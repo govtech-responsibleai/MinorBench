@@ -1,0 +1,3 @@
+anthropic==0.45.2
+fireworks-ai==0.15.12
+openai==1.60.2
