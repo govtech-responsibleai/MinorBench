@@ -18,6 +18,9 @@ from anthropic import AsyncAnthropicBedrock
 # Constants
 # ------------------------------------------------------------------------------
 
+INPUT_PATH = "model_outputs.csv"
+OUTPUT_PATH = "evaluation.csv"
+
 BATCH_SIZE = 10
 
 JUDGE_PROMPT = """
@@ -73,7 +76,7 @@ anthropic_client = AsyncAnthropicBedrock(
 # Load data
 # ------------------------------------------------------------------------------
 
-df = pd.read_csv("results.csv")
+df = pd.read_csv(INPUT_PATH)
 
 queries = df["Prompt"].tolist()
 results = df.drop(columns=["Prompt", "Category"], axis = 1).values
@@ -152,7 +155,7 @@ async def process_all_responses():
             df_results.loc[idx, col_name] = result
         
         # Save intermediate results after each batch
-        df_results.to_csv("evaluation_results.csv", index=False)
+        df_results.to_csv(OUTPUT_PATH, index=False)
         print(f"Processed rows {start_idx} to {end_idx-1}")
 
 if __name__ == "__main__":
