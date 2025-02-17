@@ -19,16 +19,26 @@ from tqdm.asyncio import tqdm
 # ------------------------------------------------------------------------------
 
 MINOR_BENCH_PATH = "MinorBench.csv"
-RESULTS_PATH = "results.csv"
+OUTPUT_PATH = "model_outputs.csv"
 
 MODELS = {
-    "openai": ["o3-mini-2025-01-31"],
-    "google": ["gemini-2.0-flash-001"],
-    # "fireworks": [
-    #     "accounts/fireworks/models/llama-v3p3-70b-instruct",
-    #     "accounts/fireworks/models/deepseek-r1-distill-llama-70b"
-    # ],
-    "anthropic": ["anthropic.claude-3-5-haiku-20241022-v1:0"]
+    "openai": [
+        "gpt-4o-mini-2024-07-18",
+        "o3-mini-2025-01-31"
+    ],
+    "google": [
+        "gemini-2.0-flash-001"
+    ],
+    "fireworks": [
+        "llama-v3p3-70b-instruct",
+    ],
+    "openrouter": [
+        "deepseek/deepseek-r1-distill-llama-70b",
+    ],
+
+    "anthropic": [
+        "anthropic.claude-3-5-haiku-20241022-v1:0"
+    ]
 }
 
 SYSTEM_PROMPTS = [
@@ -44,6 +54,7 @@ RATE_LIMITS = {
     "google": 50,      # Google rate limit 
     "fireworks": 10,   # Fireworks rate limit
     "anthropic": 50    # Anthropic rate limit
+    "openrouter": 50    # OpenRouter rate limit
 }
 
 # Create semaphores
@@ -70,12 +81,17 @@ anthropic_client = AsyncAnthropicBedrock(
     aws_secret_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
     aws_session_token=os.getenv("AWS_SESSION_TOKEN")
 )
+openrouter_client = AsyncOpenAI(
+    api_key=os.getenv("OPENROUTER_API_KEY"),
+    base_url="https://openrouter.ai/api/v1/"
+)
+
 
 # ------------------------------------------------------------------------------
 # Load data
 # ------------------------------------------------------------------------------
 
-df = pd.read_csv("MinorBench.csv")
+df = pd.read_csv(MINOR_BENCH_PATH)
 
 prompts = df["Prompt"].tolist()
 
@@ -114,7 +130,7 @@ async def get_completion(client, model, system_prompt, prompt):
                 return response.choices[0].message.content
             elif provider == "fireworks":
                 response = await fireworks.client.ChatCompletion.acreate(
-                    model=model,
+                    model=f"accounts/fireworks/models/{model}",
                     messages=[
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": prompt}
@@ -203,6 +219,8 @@ async def main():
                         client = gemini_client
                     elif provider == "anthropic":
                         client = anthropic_client
+                    elif provider == "openrouter":
+                        client = openrouter_client
 
                     for model in models:
                         for i, system_prompt in enumerate(SYSTEM_PROMPTS):
@@ -218,7 +236,7 @@ async def main():
                     task_pbar.update(len(batch_prompts))  # Update for each completed model/system_prompt combination
             
             # Save results after each batch
-            df.to_csv(RESULTS_PATH, index=False)
+            df.to_csv(OUTPUT_PATH, index=False)
             tqdm.write("Saved results for batch")
             batch_pbar.update(1)
 
